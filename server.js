@@ -17,7 +17,11 @@ const DATA_DIR = path.join(ROOT, 'data');
 const PUBLIC_DIR = path.join(ROOT, 'public');
 const GEOJSON_PATH = path.join(DATA_DIR, 'dashboard_data_v6_kl.geojson');
 const CSV_PATH = path.join(DATA_DIR, 'uhvi_areas_v6.csv');
-const AUTH_DB_PATH = process.env.AUTH_DB_PATH || path.join(DATA_DIR, 'navi-auth.sqlite');
+const AUTH_DB_PATH = process.env.AUTH_DB_PATH || (
+  process.env.VERCEL
+    ? path.join('/tmp', 'navi-auth.sqlite')
+    : path.join(DATA_DIR, 'navi-auth.sqlite')
+);
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 7;
 const PASSWORD_ITERATIONS = 310000;
 
@@ -322,10 +326,12 @@ app.post('/api/cells/refresh', async (req, res) => {
   }
 });
 
-const port = process.env.PORT || 3000;
-app.listen(port, () => {
-  console.log(`Navi Heat Dashboard listening on http://localhost:${port}`);
-  scheduler.start();
-});
+if (require.main === module) {
+  const port = process.env.PORT || 3000;
+  app.listen(port, () => {
+    console.log(`Navi Heat Dashboard listening on http://localhost:${port}`);
+    scheduler.start();
+  });
+}
 
 module.exports = app;
