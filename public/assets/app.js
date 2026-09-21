@@ -128,8 +128,14 @@ function bilinearValue(values, x, y, width, height) {
 
 function createDerivedSurfaceUrl() {
   const matrix = state.surfaceMatrix;
+  const renderBounds = {
+    west: BASELINE_RASTER_BOUNDS[0][1],
+    south: BASELINE_RASTER_BOUNDS[0][0],
+    east: BASELINE_RASTER_BOUNDS[1][1],
+    north: BASELINE_RASTER_BOUNDS[1][0],
+  };
   const width = 420;
-  const height = Math.round(width * (matrix.bounds.north - matrix.bounds.south) / (matrix.bounds.east - matrix.bounds.west));
+  const height = Math.round(width * (renderBounds.north - renderBounds.south) / (renderBounds.east - renderBounds.west));
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
@@ -147,9 +153,11 @@ function createDerivedSurfaceUrl() {
   const min = state.gridMode === "exposure" ? 0 : 25;
   const max = state.gridMode === "exposure" ? 100 : 50;
   for (let pixelY = 0; pixelY < height; pixelY += 1) {
-    const matrixY = (1 - pixelY / (height - 1)) * (matrix.height - 1);
+    const latitude = renderBounds.north - pixelY / (height - 1) * (renderBounds.north - renderBounds.south);
+    const matrixY = (matrix.bounds.north - latitude) / (matrix.bounds.north - matrix.bounds.south) * (matrix.height - 1);
     for (let pixelX = 0; pixelX < width; pixelX += 1) {
-      const matrixX = (pixelX / (width - 1)) * (matrix.width - 1);
+      const longitude = renderBounds.west + pixelX / (width - 1) * (renderBounds.east - renderBounds.west);
+      const matrixX = (longitude - matrix.bounds.west) / (matrix.bounds.east - matrix.bounds.west) * (matrix.width - 1);
       const value = bilinearValue(source, matrixX, matrixY, matrix.width, matrix.height) + adjustment;
       const color = continuousColor(value, min, max, palette);
       const offset = (pixelY * width + pixelX) * 4;
@@ -521,7 +529,7 @@ function initialiseMap() {
     className: "baseline-lst-overlay",
   });
 
-  derivedSurfaceLayer = L.imageOverlay(createDerivedSurfaceUrl(), studyBounds, {
+  derivedSurfaceLayer = L.imageOverlay(createDerivedSurfaceUrl(), BASELINE_RASTER_BOUNDS, {
     opacity: state.opacity,
     interactive: false,
     pane: "smoothHeatPane",
