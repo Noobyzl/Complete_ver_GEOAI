@@ -1,0 +1,18 @@
+{
+  "title": "Urban Heat Vulnerability Index — Klang Valley v6",
+  "source_vector": "dashboard_data_v6_kl.geojson",
+  "source_artifact": "../public/assets/UHVI_Klang_Valley_v6.pdf",
+  "geometry": "56 constituency polygons in GeoJSON longitude/latitude (WGS 84)",
+  "states": ["Selangor", "W.P. Kuala Lumpur", "W.P. Putrajaya"],
+  "score_range": { "minimum": 0.3119656404, "maximum": 0.8039637701 },
+  "classes": [
+    { "label": "0.312 - <0.394", "minimum": 0.312, "maximum_exclusive": 0.394, "count": 6 },
+    { "label": "0.394 - <0.498", "minimum": 0.394, "maximum_exclusive": 0.498, "count": 11 },
+    { "label": "0.498 - <0.609", "minimum": 0.498, "maximum_exclusive": 0.609, "count": 17 },
+    { "label": "0.609 - <0.722", "minimum": 0.609, "maximum_exclusive": 0.722, "count": 15 },
+    { "label": "0.722 - 0.804", "minimum": 0.722, "maximum": 0.804, "count": 7 }
+  ],
+  "operational_status": "Area-level screening evidence pending custodian and methodology sign-off",
+  "authorized_use": "Constituency-scale comparison, strategic briefing and controlled pilot screening",
+  "prohibited_use": "Parcel, person, address or asset-level classification; emergency dispatch; automated approvals"
+}

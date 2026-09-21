@@ -1,0 +1,13 @@
+{
+  "title": "Baseline Land Surface Temperature — Klang Valley v6",
+  "source_artifact": "../public/assets/LST_Baseline_Klang_Valley_v6.pdf",
+  "source_vector": "dashboard_data_v6_kl.geojson",
+  "source_creator": "QGIS 3.44.12-Solothurn",
+  "source_creation_date": "2026-09-20T21:54:53+08:00",
+  "temperature_unit": "degrees Celsius",
+  "published_map_legend": { "minimum": 25, "maximum": 50 },
+  "constituency_mean_range": { "minimum": 27.373916626, "maximum": 44.774783451 },
+  "interactive_surface": "1188 x 943 raster extracted from the source PDF and aligned to the dashboard study bounds; scenario and exposure modes use a derived 64 x 52 matrix",
+  "operational_status": "Regional visual background; source PDF is not a GeoPDF or GeoTIFF",
+  "restriction": "Do not use raster colours for parcel-temperature estimates. Inspect v6 area or evidence-cell values."
+}

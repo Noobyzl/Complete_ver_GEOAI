@@ -1,0 +1,81 @@
+{
+  "title": "Klang Valley telecom thermal-risk decision dataset",
+  "generatedAt": "2026-09-20T15:42:52.755Z",
+  "source": "OpenCelliD MCC 502 + UHVI v6 constituency evidence (data/dashboard_data_v6_kl.geojson)",
+  "sourceSha256": "f2f91d58b2cde39681771918ad9a137e4e272495d61da1af235dbeb567d1ab65",
+  "thresholdsC": {
+    "Low": "< 32",
+    "Medium": "32 to < 38",
+    "High": ">= 38"
+  },
+  "rows": 45660,
+  "bounds": {
+    "west": 101.2172,
+    "south": 2.7272,
+    "east": 101.9695,
+    "north": 3.4085
+  },
+  "baseline": {
+    "min": 27.374,
+    "max": 44.775,
+    "mean": 34.6067
+  },
+  "modelScenario": {
+    "min": 27.374,
+    "max": 44.775,
+    "mean": 34.5791
+  },
+  "riskCounts": {
+    "Low": 11966,
+    "Medium": 24087,
+    "High": 9607
+  },
+  "modelScenarioRiskCounts": {
+    "Low": 11966,
+    "Medium": 24087,
+    "High": 9607
+  },
+  "radioCounts": {
+    "GSM": 20102,
+    "LTE": 25477,
+    "NR": 81
+  },
+  "administrativeAreas": {
+    "count": 56,
+    "states": [
+      "Selangor",
+      "W.P. Kuala Lumpur",
+      "W.P. Putrajaya"
+    ],
+    "population": 8964200,
+    "uhvi": {
+      "min": 0.312,
+      "max": 0.804,
+      "mean": 0.573,
+      "breaks": [
+        0.394,
+        0.498,
+        0.609,
+        0.722
+      ],
+      "classCounts": [
+        6,
+        11,
+        17,
+        15,
+        7
+      ]
+    }
+  },
+  "grid": {
+    "cellCount": 2423,
+    "nominalResolutionDegrees": 0.01,
+    "caveat": "Operational thermal-exposure grid; not a demographic Heat Vulnerability Index."
+  },
+  "smoothSurface": {
+    "width": 64,
+    "height": 52,
+    "source": "surface_matrix.json",
+    "caveat": "Visual interpolation only; inspect source grid cells for exact aggregate values."
+  }
+}
