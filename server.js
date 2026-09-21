@@ -119,40 +119,86 @@ function hashSessionToken(token) {
   return crypto.createHash('sha256').update(token).digest('hex');
 }
 
+const AUTH_SECRET = process.env.AUTH_SECRET || 'navi-geoai-session-key-klang-valley-2026';
+
+function createSignedSessionToken(userId, username) {
+  const expiresAt = Date.now() + SESSION_TTL_MS;
+  const payload = Buffer.from(JSON.stringify({ id: userId, username, expiresAt })).toString('base64url');
+  const signature = crypto.createHmac('sha256', AUTH_SECRET).update(payload).digest('base64url');
+  return `${payload}.${signature}`;
+}
+
+function verifySignedSessionToken(token) {
+  if (!token || typeof token !== 'string') return null;
+  const dotIndex = token.indexOf('.');
+  if (dotIndex === -1) return null;
+  const payload = token.slice(0, dotIndex);
+  const signature = token.slice(dotIndex + 1);
+  if (!payload || !signature) return null;
+  const expectedSig = crypto.createHmac('sha256', AUTH_SECRET).update(payload).digest('base64url');
+  if (signature.length !== expectedSig.length || !crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSig))) {
+    return null;
+  }
+  try {
+    const data = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+    if (data.expiresAt && data.expiresAt > Date.now()) {
+      return { id: data.id, username: data.username };
+    }
+  } catch (err) {
+    return null;
+  }
+  return null;
+}
+
 function userCount() {
+  if (process.env.OPERATOR_PASSWORD) return 1;
   if (jsonAuth) return jsonAuth.users.length;
-  return authDb.prepare('SELECT COUNT(*) AS count FROM users').get().count;
+  try {
+    return authDb ? authDb.prepare('SELECT COUNT(*) AS count FROM users').get().count : 0;
+  } catch (err) {
+    return 0;
+  }
 }
 
 function getSessionUser(request) {
   const token = parseCookies(request).navi_session;
   if (!token) return null;
+
+  const signedUser = verifySignedSessionToken(token);
+  if (signedUser) return signedUser;
+
   const now = Date.now();
   if (jsonAuth) {
     removeExpiredJsonSessions(now);
     const session = jsonAuth.sessions.find((item) => item.token_hash === hashSessionToken(token) && item.expires_at > now);
     return session ? jsonAuth.users.find((user) => user.id === session.user_id) || null : null;
   }
-  authDb.prepare('DELETE FROM sessions WHERE expires_at <= ?').run(now);
-  return authDb.prepare(`
-    SELECT users.id, users.username
-    FROM sessions JOIN users ON users.id = sessions.user_id
-    WHERE sessions.token_hash = ? AND sessions.expires_at > ?
-  `).get(hashSessionToken(token), now) || null;
+  try {
+    authDb.prepare('DELETE FROM sessions WHERE expires_at <= ?').run(now);
+    return authDb.prepare(`
+      SELECT users.id, users.username
+      FROM sessions JOIN users ON users.id = sessions.user_id
+      WHERE sessions.token_hash = ? AND sessions.expires_at > ?
+    `).get(hashSessionToken(token), now) || null;
+  } catch (err) {
+    return null;
+  }
 }
 
-function setSession(response, userId) {
-  const token = crypto.randomBytes(32).toString('base64url');
+function setSession(response, userId, username) {
+  const token = createSignedSessionToken(userId, username || 'Operator');
   const expiresAt = Date.now() + SESSION_TTL_MS;
-  if (jsonAuth) {
-    removeExpiredJsonSessions(Date.now());
-    jsonAuth.sessions = jsonAuth.sessions.filter((session) => session.user_id !== userId);
-    jsonAuth.sessions.push({ token_hash: hashSessionToken(token), user_id: userId, expires_at: expiresAt });
-    saveJsonAuth();
-  } else {
-    authDb.prepare('DELETE FROM sessions WHERE expires_at <= ?').run(Date.now());
-    authDb.prepare('INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?, ?, ?)').run(hashSessionToken(token), userId, expiresAt);
-  }
+  try {
+    if (jsonAuth) {
+      removeExpiredJsonSessions(Date.now());
+      jsonAuth.sessions = jsonAuth.sessions.filter((session) => session.user_id !== userId);
+      jsonAuth.sessions.push({ token_hash: hashSessionToken(token), user_id: userId, expires_at: expiresAt });
+      saveJsonAuth();
+    } else if (authDb) {
+      authDb.prepare('DELETE FROM sessions WHERE expires_at <= ?').run(Date.now());
+      authDb.prepare('INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?, ?, ?)').run(hashSessionToken(token), userId, expiresAt);
+    }
+  } catch (err) {}
   const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
   response.setHeader('Set-Cookie', `navi_session=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${Math.floor(SESSION_TTL_MS / 1000)}${secure}`);
 }
@@ -162,8 +208,10 @@ function clearSession(request, response) {
   if (token && jsonAuth) {
     jsonAuth.sessions = jsonAuth.sessions.filter((session) => session.token_hash !== hashSessionToken(token));
     saveJsonAuth();
-  } else if (token) {
-    authDb.prepare('DELETE FROM sessions WHERE token_hash = ?').run(hashSessionToken(token));
+  } else if (token && authDb) {
+    try {
+      authDb.prepare('DELETE FROM sessions WHERE token_hash = ?').run(hashSessionToken(token));
+    } catch (err) {}
   }
   response.setHeader('Set-Cookie', 'navi_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0');
 }
@@ -175,7 +223,7 @@ function requireAuthentication(request, response, next) {
     next();
     return;
   }
-  if (request.path.startsWith('/api/')) {
+  if (request.path.startsWith('/api/') || request.path.startsWith('/data/')) {
     response.status(401).json({ error: 'Sign in is required.' });
     return;
   }
@@ -224,7 +272,7 @@ app.post('/api/auth/setup', (req, res) => {
       const result = authDb.prepare('INSERT INTO users (username, password_hash, password_salt, password_iterations) VALUES (?, ?, ?, ?)').run(username, passwordHash, salt, PASSWORD_ITERATIONS);
       userId = Number(result.lastInsertRowid);
     }
-    setSession(res, userId);
+    setSession(res, userId, username);
     res.status(201).json({ ok: true, username });
   } catch (err) {
     res.status(409).json({ error: 'That username is already in use.' });
@@ -234,9 +282,18 @@ app.post('/api/auth/setup', (req, res) => {
 app.post('/api/auth/login', (req, res) => {
   const username = normalizeUsername(req.body?.username);
   const password = req.body?.password;
+
+  const operatorUsername = normalizeUsername(process.env.OPERATOR_USERNAME || 'admin');
+  const operatorPassword = process.env.OPERATOR_PASSWORD;
+  if (operatorPassword && username === operatorUsername && password === operatorPassword) {
+    setSession(res, 1, operatorUsername);
+    res.json({ ok: true, username: operatorUsername });
+    return;
+  }
+
   const user = jsonAuth
     ? jsonAuth.users.find((candidate) => candidate.username.toLowerCase() === username.toLowerCase())
-    : authDb.prepare('SELECT * FROM users WHERE username = ?').get(username);
+    : (authDb ? authDb.prepare('SELECT * FROM users WHERE username = ?').get(username) : null);
   if (!user || typeof password !== 'string') {
     res.status(401).json({ error: 'Invalid username or password.' });
     return;
@@ -248,7 +305,7 @@ app.post('/api/auth/login', (req, res) => {
     res.status(401).json({ error: 'Invalid username or password.' });
     return;
   }
-  setSession(res, user.id);
+  setSession(res, user.id, user.username);
   res.json({ ok: true, username: user.username });
 });
 
